@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -32,51 +31,68 @@ import java.util.List;
  * Created by nhs3108 on 15/12/2015.
  */
 public class LoginActivity extends Activity {
+	SharedPreferences sharedPreferences;
+	String name;
+	String email;
 	public void onCreate(Bundle savedInstanceState){
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.login);
-		Button loginBtn = (Button)findViewById(R.id.submit_login);
-		loginBtn.setOnClickListener(new View.OnClickListener(){
-			public void onClick(View v){
-				String email = ((EditText)findViewById(R.id.email_edit)).getText().toString();
-				String password = ((EditText)findViewById(R.id.password_edit)).getText().toString();
-				new SigninTasks(getBaseContext()).execute(email, password);
-				Intent intent = new Intent("com.hongson.frelearningsys.main");
-				intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-				LoginActivity.this.startActivity(intent);
-
-			}
-		});
+		sharedPreferences = getSharedPreferences("USER_INFO", Context.MODE_PRIVATE);
+		name = sharedPreferences.getString("name", null);
+		if(name != null){
+			startActivity(new Intent(this, MainActivity.class));
+		} else {
+			Button loginBtn = (Button)findViewById(R.id.submit_login);
+			loginBtn.setOnClickListener(new View.OnClickListener(){
+				public void onClick(View v){
+					String email = ((EditText)findViewById(R.id.email_edit)).getText().toString();
+					String password = ((EditText)findViewById(R.id.password_edit)).getText().toString();
+					new SigninTasks(getBaseContext()).execute(email, password);
+				}
+			});
+		}
 	}
 
+	public void onResume(){
+		super.onResume();
+//		if(name != null){
+//			startActivity(new Intent(this, MainActivity.class));
+//		}
+	}
 	class SigninTasks extends AsyncTask<String, Void, String> {
 		private Context context;
-		private String content = "default";
-		private ProgressDialog pDialog;
-		private JSONObject user_info;
+		private ProgressDialog progressDialog;
+		private JSONObject responseJson;
+		private int statusCode;
+		final String URL = "https://manh-nt.herokuapp.com/login.json";
 		SigninTasks(Context context){
 			this.context = context;
 		}
+
+		protected void onPreExecute(){
+			super.onPreExecute();
+			progressDialog = new ProgressDialog(LoginActivity.this);
+			progressDialog.setMessage("Đang đăng nhập...");
+			progressDialog.setIndeterminate(false);
+			progressDialog.setCancelable(true);
+			progressDialog.show();
+		}
+
 		protected String doInBackground(String... args){
 			String email = (String)args[0];
 			String password = (String)args[1];
 			HttpClient httpClient = new DefaultHttpClient();
-			HttpPost httpPost = new HttpPost("https://manh-nt.herokuapp.com/login.json");
+			HttpPost httpPost = new HttpPost(URL);
+			String responseBody = null;
 			try{
 				List nameValuePairs = new ArrayList(2);
-				nameValuePairs.add(new BasicNameValuePair("session[email]", "nhs3108@gmail.com"));
-				nameValuePairs.add(new BasicNameValuePair("session[password]", "11111111"));
+				nameValuePairs.add(new BasicNameValuePair("session[email]", email));
+				nameValuePairs.add(new BasicNameValuePair("session[password]", password));
 				httpPost.setEntity(new UrlEncodedFormEntity(nameValuePairs));
-
 				HttpResponse response = httpClient.execute(httpPost);
-				int statusCode = response.getStatusLine().getStatusCode();
-				final String responseBody = EntityUtils.toString(response.getEntity());
-				if (statusCode == 200){
-					JSONObject json_response = new JSONObject(responseBody);
-					user_info = json_response.getJSONObject("user");
-				}else{
-
-				}
+				statusCode = response.getStatusLine().getStatusCode();
+				responseBody = EntityUtils.toString(response.getEntity());
+				responseJson = new JSONObject(responseBody);
 			}catch (ClientProtocolException e) {
 				e.printStackTrace();
 			} catch (IOException e) {
@@ -84,32 +100,33 @@ public class LoginActivity extends Activity {
 			} catch (Exception e){
 				e.printStackTrace();
 			}
-			return null;
+			return responseBody;
 		}
 
 
-		protected  void onPreExecute(){
-			super.onPreExecute();
-			pDialog = new ProgressDialog(LoginActivity.this);
-			pDialog.setMessage("Attempting login...");
-			pDialog.setIndeterminate(false);
-			pDialog.setCancelable(true);
-			pDialog.show();
-
-		}
 		protected void onPostExecute(String result){
 			super.onPostExecute(result);
-			pDialog.dismiss();
-			try {
-				SharedPreferences sharedpreferences = getSharedPreferences("USER_INFO", Context.MODE_PRIVATE);
-				SharedPreferences.Editor editor= sharedpreferences.edit();
-				editor.putString("email", user_info.getString("email"));
-				editor.putString("name", user_info.getString("name"));
-				editor.commit();
-			} catch (JSONException e) {
-				e.printStackTrace();
+			progressDialog.dismiss();
+			if (statusCode == 200){
+				try {
+					SharedPreferences.Editor editor = sharedPreferences.edit();
+					editor.putString("email", responseJson.getJSONObject("user").getString("email"));
+					editor.putString("name", responseJson.getJSONObject("user").getString("name"));
+					editor.commit();
+					Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+					intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+					startActivity(intent);
+					finish();
+				} catch (JSONException e) {
+					e.printStackTrace();
+				} catch (Exception e){
+					e.printStackTrace();
+				}
+			}else if (statusCode == 401){
+				Toast.makeText(LoginActivity.this, "Wrong email or password!", Toast.LENGTH_SHORT).show();
+			}else{
+				Toast.makeText(LoginActivity.this, "Unknown error", Toast.LENGTH_SHORT).show();
 			}
-
 		}
 	}
 }

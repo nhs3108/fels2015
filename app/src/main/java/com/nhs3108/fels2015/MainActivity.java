@@ -1,5 +1,8 @@
 package com.nhs3108.fels2015;
 
+import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
@@ -15,20 +18,23 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity
 	implements NavigationView.OnNavigationItemSelectedListener {
-
+	private String name;
+	private String email;
+	SharedPreferences sharedPreferences;
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.activity_main);
-		SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-		String name = sharedPreferences.getString("name", "Default");
-		String email = sharedPreferences.getString("email", "Default");
-		Toast.makeText(MainActivity.this, "Welcome to FELS 2015" + email + " - " + name, Toast.LENGTH_SHORT).show();
-		Log.e("_________","____________________________________________________");
+		sharedPreferences = getSharedPreferences("USER_INFO", Context.MODE_PRIVATE);
+		name = sharedPreferences.getString("name", "Default");
+		email = sharedPreferences.getString("email", "Default");
+		Toast.makeText(MainActivity.this, "Welcome " + name +" to FELS 2015", Toast.LENGTH_SHORT).show();
+
 		Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
 		setSupportActionBar(toolbar);
 
@@ -40,7 +46,6 @@ public class MainActivity extends AppCompatActivity
 					.setAction("Action", null).show();
 			}
 		});
-
 		DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
 		ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
 			this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
@@ -49,8 +54,8 @@ public class MainActivity extends AppCompatActivity
 
 		NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
 		navigationView.setNavigationItemSelectedListener(this);
-	}
 
+	}
 	@Override
 	public void onBackPressed() {
 		DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
@@ -61,10 +66,20 @@ public class MainActivity extends AppCompatActivity
 		}
 	}
 
+	public void logout(View v){
+		sharedPreferences.edit().clear().commit();
+		finish();
+		startActivity(new Intent(this, LoginActivity.class));
+	}
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
 		getMenuInflater().inflate(R.menu.main, menu);
+
+		TextView textView_user_name = (TextView) findViewById(R.id.textView_user_name);
+		textView_user_name.setText(name);
+		TextView textView_user_email = (TextView) findViewById(R.id.textView_user_email);
+		textView_user_email.setText(email);
 		return true;
 	}
 
